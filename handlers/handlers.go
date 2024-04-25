@@ -1,8 +1,9 @@
-package main
+package handlers
 
 import (
 	"database/sql"
 	"github.com/gin-gonic/gin"
+	"github.com/searcheroflulz/go_final_project/models"
 	"net/http"
 	"time"
 )
@@ -17,7 +18,7 @@ func NextDateHandler(c *gin.Context) {
 	date := c.Query("date")
 	repeat := c.Query("repeat")
 
-	next, err := NextDate(now, date, repeat)
+	next, err := models.NextDate(now, date, repeat)
 	if err != nil {
 		c.String(400, "Ошибка: "+err.Error())
 		return
@@ -28,7 +29,7 @@ func NextDateHandler(c *gin.Context) {
 
 func AddTaskHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var task Task
+		var task models.Task
 		if err := c.ShouldBindJSON(&task); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Не удалось прочитать JSON"})
 			return
@@ -45,7 +46,7 @@ func AddTaskHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		res, err := db.Exec(AddTask, task.Date, task.Title, task.Comment, task.Repeat)
+		res, err := db.Exec(models.AddTask, task.Date, task.Title, task.Comment, task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Не удалось выполнить запрос ДБ"})
 			return
@@ -57,17 +58,17 @@ func AddTaskHandler(db *sql.DB) gin.HandlerFunc {
 
 func GetTasksListHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rows, err := db.Query(GetTasksList)
+		rows, err := db.Query(models.GetTasksList)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		defer rows.Close()
 
-		var tasks []Task
+		var tasks []models.Task
 
 		for rows.Next() {
-			var task Task
+			var task models.Task
 			err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -77,7 +78,7 @@ func GetTasksListHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		if len(tasks) == 0 {
-			tasks = []Task{}
+			tasks = []models.Task{}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"tasks": tasks})
@@ -92,8 +93,8 @@ func GetTaskHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		var task Task
-		err := db.QueryRow(GetTask, id).
+		var task models.Task
+		err := db.QueryRow(models.GetTask, id).
 			Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Задача не найдена"})
@@ -112,7 +113,7 @@ func GetTaskHandler(db *sql.DB) gin.HandlerFunc {
 
 func PutTaskHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var task Task
+		var task models.Task
 		if err := c.ShouldBindJSON(&task); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Не удалось прочитать JSON"})
 			return
@@ -123,8 +124,8 @@ func PutTaskHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		var existingTask Task
-		err := db.QueryRow(GetTask, task.ID).Scan(&existingTask.ID, &existingTask.Date, &existingTask.Title, &existingTask.Comment, &existingTask.Repeat)
+		var existingTask models.Task
+		err := db.QueryRow(models.GetTask, task.ID).Scan(&existingTask.ID, &existingTask.Date, &existingTask.Title, &existingTask.Comment, &existingTask.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
@@ -139,7 +140,7 @@ func PutTaskHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = db.Exec(UpdateTask, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
+		_, err = db.Exec(models.UpdateTask, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
@@ -157,15 +158,15 @@ func TaskDoneHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		var task Task
-		err := db.QueryRow(GetTask, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+		var task models.Task
+		err := db.QueryRow(models.GetTask, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
 		}
 
 		if task.Repeat == "" {
-			_, err := db.Exec(DeleteTask, task.ID)
+			_, err := db.Exec(models.DeleteTask, task.ID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при удалении задачи из базы данных"})
 				return
@@ -174,13 +175,13 @@ func TaskDoneHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+		nextDate, err := models.NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при вычислении следующей даты выполнения"})
 			return
 		}
 
-		_, err = db.Exec(UpdateDate, nextDate, task.ID)
+		_, err = db.Exec(models.UpdateDate, nextDate, task.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при обновлении задачи в базе данных"})
 			return
@@ -198,14 +199,14 @@ func TaskDeleteHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		var task Task
-		err := db.QueryRow(GetTask, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+		var task models.Task
+		err := db.QueryRow(models.GetTask, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
 		}
 
-		_, err = db.Exec(DeleteTask, id)
+		_, err = db.Exec(models.DeleteTask, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при удалении задачи из базы данных"})
 			return
