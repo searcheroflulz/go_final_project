@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
+	err := godotenv.Load("variables.env")
 	if err != nil {
-		panic("Error loading .env file")
+		panic("Error loading variables.env file")
 	}
 
 	port := os.Getenv("port")
