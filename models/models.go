@@ -50,12 +50,3 @@ func (t *Task) VerifyChange() error {
 	}
 	return nil
 }
-
-const (
-	AddTask      = `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?);`
-	GetTasksList = `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date ASC LIMIT 50`
-	GetTask      = `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`
-	UpdateTask   = `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
-	DeleteTask   = `DELETE FROM scheduler WHERE id = ?`
-	UpdateDate   = `UPDATE scheduler SET date = ? WHERE id = ?`
-)

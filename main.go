@@ -6,6 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/searcheroflulz/go_final_project/handlers"
+	"log"
 	"net/http"
 	"os"
 )
@@ -16,10 +17,10 @@ func main() {
 		panic("Error loading variables.env file")
 	}
 
-	port := os.Getenv("port")
+	port := os.Getenv("PORT")
 	router := gin.Default()
 
-	db, err := sql.Open("sqlite3", "scheduler.db")
+	db, err := sql.Open("sqlite3", os.Getenv("DBFILE"))
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +34,7 @@ func main() {
 		panic(err)
 	}
 
-	router.NoRoute(gin.WrapH(http.FileServer(gin.Dir(os.Getenv("WebDir"), false))))
+	router.NoRoute(gin.WrapH(http.FileServer(gin.Dir(os.Getenv("WEBDIR"), false))))
 	router.GET("/api/nextdate", handlers.NextDateHandler)
 	router.POST("/api/task", handlers.AddTaskHandler(db))
 	router.GET("/api/tasks", handlers.GetTasksListHandler(db))
@@ -42,5 +43,8 @@ func main() {
 	router.POST("/api/task/done", handlers.TaskDoneHandler(db))
 	router.DELETE("/api/task", handlers.TaskDeleteHandler(db))
 
-	router.Run(":" + port)
+	err = router.Run(":" + port)
+	if err != nil {
+		log.Fatalf("error running server: %s", err)
+	}
 }

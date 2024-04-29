@@ -46,9 +46,9 @@ func AddTaskHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		res, err := db.Exec(models.AddTask, task.Date, task.Title, task.Comment, task.Repeat)
+		res, err := db.Exec(`INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?);`, task.Date, task.Title, task.Comment, task.Repeat)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Не удалось выполнить запрос ДБ"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось выполнить запрос ДБ"})
 			return
 		}
 		id, err := res.LastInsertId()
@@ -58,7 +58,7 @@ func AddTaskHandler(db *sql.DB) gin.HandlerFunc {
 
 func GetTasksListHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rows, err := db.Query(models.GetTasksList)
+		rows, err := db.Query(`SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date ASC LIMIT 50`)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -75,6 +75,11 @@ func GetTasksListHandler(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 			tasks = append(tasks, task)
+		}
+
+		if err := rows.Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
 		if len(tasks) == 0 {
@@ -94,7 +99,7 @@ func GetTaskHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var task models.Task
-		err := db.QueryRow(models.GetTask, id).
+		err := db.QueryRow(`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`, id).
 			Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Задача не найдена"})
@@ -125,7 +130,7 @@ func PutTaskHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var existingTask models.Task
-		err := db.QueryRow(models.GetTask, task.ID).Scan(&existingTask.ID, &existingTask.Date, &existingTask.Title, &existingTask.Comment, &existingTask.Repeat)
+		err := db.QueryRow(`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`, task.ID).Scan(&existingTask.ID, &existingTask.Date, &existingTask.Title, &existingTask.Comment, &existingTask.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
@@ -140,7 +145,7 @@ func PutTaskHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = db.Exec(models.UpdateTask, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
+		_, err = db.Exec(`UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
@@ -159,14 +164,14 @@ func TaskDoneHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var task models.Task
-		err := db.QueryRow(models.GetTask, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+		err := db.QueryRow(`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
 		}
 
 		if task.Repeat == "" {
-			_, err := db.Exec(models.DeleteTask, task.ID)
+			_, err := db.Exec(`DELETE FROM scheduler WHERE id = ?`, task.ID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при удалении задачи из базы данных"})
 				return
@@ -181,7 +186,7 @@ func TaskDoneHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err = db.Exec(models.UpdateDate, nextDate, task.ID)
+		_, err = db.Exec(`UPDATE scheduler SET date = ? WHERE id = ?`, nextDate, task.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при обновлении задачи в базе данных"})
 			return
@@ -200,13 +205,13 @@ func TaskDeleteHandler(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var task models.Task
-		err := db.QueryRow(models.GetTask, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+		err := db.QueryRow(`SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`, c.Query("id")).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при выполнении запроса к базе данных"})
 			return
 		}
 
-		_, err = db.Exec(models.DeleteTask, id)
+		_, err = db.Exec(`DELETE FROM scheduler WHERE id = ?`, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка при удалении задачи из базы данных"})
 			return
